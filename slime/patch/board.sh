@@ -36,7 +36,7 @@ ROLLOUT_ARGS1=(
 
     --rollout-max-response-len 4096
     --rollout-temperature 0.8
-    --global-batch-size 512
+    --global-batch-size 32
     --balance-data
 
     --num-critic-only-steps 20
@@ -67,7 +67,7 @@ EVAL_ARGS=(
 )
 
 GRPO_ARGS=(
-   --advantage-estimator ppo
+   --advantage-estimator ppo1
    --kl-loss-coef 0.00
    --kl-loss-type low_var_kl
    --kl-coef 0.00

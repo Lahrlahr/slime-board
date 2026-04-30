@@ -46,6 +46,8 @@ class GenerateState(metaclass=SingletonMeta):
         # persistent state for the generation process
         self.args = args
         self.tokenizer = load_tokenizer(args.hf_checkpoint, trust_remote_code=True)
+        self.semaphore = asyncio.Semaphore(8)
+
 
 client = httpx.AsyncClient(
     limits=httpx.Limits(max_connections=512),
@@ -101,105 +103,112 @@ def generate_prompt(layout):
 
 
 async def generate_junqi():
-    session_ids = await asyncio.gather(open_session(), open_session())
+    state = GenerateState()
+    async with state.semaphore:
+        session_ids = await asyncio.gather(open_session(), open_session())
 
-    req_id = [None, None]
-    buffer = []
-    idx = [0, 0]
+        req_id = [None, None]
+        buffer = []
+        idx = [0, 0]
 
-    board = Board()
-    prompt = [generate_prompt(board.get_layout(0)), generate_prompt(board.get_layout(1))]
+        board = Board()
+        prompt = [generate_prompt(board.get_layout(0)), generate_prompt(board.get_layout(1))]
 
-    loss_mask = [[], []]
-    logits_masks = [[], []]
-    reward_list = [[], []]
-    rollout_log_probs = [[], []]
-    dead_players_set = set()
+        loss_mask = [[], []]
+        logits_masks = [[], []]
+        reward_list = [[], []]
+        rollout_log_probs = [[], []]
+        dead_players_set = set()
 
-    is_complete = False
-    for i in range(500):
-        player = i % 4
-        group = i % 2
-        if player in dead_players_set:
-            buffer.append(157599)
-            loss_mask[group].append(0)
-            loss_mask[1 - group].append(0)
-            continue
+        is_complete = False
+        for i in range(400):
+            player = i % 4
+            group = i % 2
+            if player in dead_players_set:
+                buffer.append(157599)
+                loss_mask[group].append(0)
+                loss_mask[1 - group].append(0)
+                rollout_log_probs[group].append(0)
+                rollout_log_probs[1 - group].append(0)
+                continue
 
-        action_mask = board.get_action_mask(player)
-        assert action_mask is not None
-        logits_mask = (np.where(action_mask)[0] + 151665).tolist()
-        buf_slice = buffer[idx[group]:]
-        idx[group] = len(buffer)
-        input_ids = prompt[group] + buf_slice if req_id[group] is None else buf_slice
+            action_mask = board.get_action_mask(player)
+            assert action_mask is not None
+            logits_mask = (np.where(action_mask)[0] + 151665).tolist()
+            buf_slice = buffer[idx[group]:]
+            idx[group] = len(buffer)
+            input_ids = prompt[group] + buf_slice if req_id[group] is None else buf_slice
 
-        response = await generate({
-            'input_ids': input_ids,
-            'session_params': {'id': session_ids[group], 'rid': req_id[group], },
-            'sampling_params': {'max_new_tokens': 1, 'logits_mask': logits_mask, },
-            'return_logprob': True,
-        })
+            response = await generate({
+                'input_ids': input_ids,
+                'session_params': {'id': session_ids[group], 'rid': req_id[group], },
+                'sampling_params': {'max_new_tokens': 1, 'logits_mask': logits_mask, },
+                'return_logprob': True,
+            })
 
-        req_id[group] = response['meta_info']['id']  # new_response_log_probs =
-        action = response['output_ids'][0]
-        result_id, _, flags, dead_players, reward = board.update(player, action - 151665)
+            req_id[group] = response['meta_info']['id']  # new_response_log_probs =
+            action = response['output_ids'][0]
+            result_id, _, flags, dead_players, reward = board.update(player, action - 151665)
 
-        if result_id == 4:
-            assert action == 157599
-            buffer.append(157599)
-            loss_mask[group].append(1)
-            loss_mask[1 - group].append(0)
-            rollout_log_probs[group].append(response["meta_info"]["output_token_logprobs"][0][0])
-            rollout_log_probs[1 - group].append(0)
-        else:
-            result = result_ids[result_id]
-            buffer.extend((action, result))
-            loss_mask[group].extend([1, 0])
-            loss_mask[1 - group].extend([0, 0])
-            rollout_log_probs[group].extend([response["meta_info"]["output_token_logprobs"][0][0], 0])
-            rollout_log_probs[1 - group].extend([0, 0])
+            if result_id == 4:
+                assert action == 157599
+                buffer.append(157599)
+                loss_mask[group].append(1)
+                loss_mask[1 - group].append(0)
+                rollout_log_probs[group].append(response["meta_info"]["output_token_logprobs"][0][0])
+                rollout_log_probs[1 - group].append(0)
+            else:
+                result = result_ids[result_id]
+                buffer.extend((action, result))
+                loss_mask[group].extend([1, 0])
+                loss_mask[1 - group].extend([0, 0])
+                rollout_log_probs[group].extend([response["meta_info"]["output_token_logprobs"][0][0], 0])
+                rollout_log_probs[1 - group].extend([0, 0])
 
-        reward_list[group].append([reward])
-        if len(reward_list[1 - group]) > 0:
-            reward_list[1 - group][-1].append(reward)
-        logits_masks[group].append(logits_mask)
+            reward_list[group].append([reward])
+            if len(reward_list[1 - group]) > 0:
+                reward_list[1 - group][-1].append(reward)
+            logits_masks[group].append(logits_mask)
 
-        if flags:
-            f_ids = [flags_ids[i] for i in flags]
-            buffer.extend(f_ids)
+            if flags:
+                f_ids = [flags_ids[i] for i in flags]
+                buffer.extend(f_ids)
 
-            n = len(f_ids)
-            loss_mask[group].extend([0] * n)
-            loss_mask[1 - group].extend([0] * n)
-            rollout_log_probs[group].extend([0] * n)
-            rollout_log_probs[1 - group].extend([0] * n)
+                n = len(f_ids)
+                loss_mask[group].extend([0] * n)
+                loss_mask[1 - group].extend([0] * n)
+                rollout_log_probs[group].extend([0] * n)
+                rollout_log_probs[1 - group].extend([0] * n)
 
-        if dead_players:
-            d_ids = [dead_ids[i] for i in dead_players]
-            buffer.extend(d_ids)
+            if dead_players:
+                d_ids = [dead_ids[i] for i in dead_players]
+                buffer.extend(d_ids)
 
-            n = len(d_ids)
-            loss_mask[group].extend([0] * n)
-            loss_mask[1 - group].extend([0] * n)
-            rollout_log_probs[group].extend([0] * n)
-            rollout_log_probs[1 - group].extend([0] * n)
+                n = len(d_ids)
+                loss_mask[group].extend([0] * n)
+                loss_mask[1 - group].extend([0] * n)
+                rollout_log_probs[group].extend([0] * n)
+                rollout_log_probs[1 - group].extend([0] * n)
 
-            dead_players_set.update(dead_players)
-            if len(dead_players_set) == 3:
-                is_complete = True
-                break
-            elif len(dead_players_set) == 2:
-                a, b = list(dead_players_set)
-                if abs(a - b) == 2:
+                dead_players_set.update(dead_players)
+                if len(dead_players_set) == 3:
                     is_complete = True
                     break
+                elif len(dead_players_set) == 2:
+                    a, b = list(dead_players_set)
+                    if abs(a - b) == 2:
+                        is_complete = True
+                        break
 
-    await asyncio.gather(close_session(session_ids[0]), close_session(session_ids[1]))
+        await asyncio.gather(close_session(session_ids[0]), close_session(session_ids[1]))
 
-    output = [Sample(tokens=prompt[i] + buffer, response=buffer, response_length=len(buffer), loss_mask=loss_mask[i],
-                     reward=reward_list[i], status=Sample.Status.COMPLETED if is_complete else Sample.Status.TRUNCATED,
-                     logits_masks=logits_masks[group], rollout_log_probs=rollout_log_probs[group]) for i in range(2)]
+        output = [Sample(tokens=prompt[i] + buffer, response_length=len(buffer),
+                         reward=reward_list[i],
+                         status=Sample.Status.COMPLETED if is_complete else Sample.Status.TRUNCATED,
+                         loss_mask=loss_mask[i],
+                         rollout_log_probs=rollout_log_probs[i], logits_masks=logits_masks[i], ) for i in range(2)]
     return output
+
 
 async def generate_rollout_async(args):
     state = GenerateState(args)
@@ -222,6 +231,13 @@ def generate_rollout(
 class Dummy:
     def __init__(self, *args, **kwargs):
         pass
+
+    def save(self, *args, **kwargs):
+        pass
+
+    def load(self, *args, **kwargs):
+        pass
+
 
 if __name__ == "__main__":
     result = run(generate_junqi())

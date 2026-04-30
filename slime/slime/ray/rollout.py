@@ -738,6 +738,9 @@ class RolloutManager:
         if samples[0].rollout_log_probs is not None:
             train_data["rollout_log_probs"] = [sample.rollout_log_probs for sample in samples]
 
+        if samples[0].logits_masks is not None:
+            train_data['logits_masks'] = [sample.logits_masks for sample in samples]
+
         if samples[0].rollout_routed_experts is not None:
             train_data["rollout_routed_experts"] = [sample.rollout_routed_experts for sample in samples]
 
@@ -798,6 +801,7 @@ class RolloutManager:
             for key in [
                 "raw_reward",
                 "total_lengths",
+                'logits_masks',
             ]:
                 if key not in data:
                     continue

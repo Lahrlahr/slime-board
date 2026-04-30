@@ -279,6 +279,7 @@ class SamplingBatchInfo:
 
         if self.logit_bias is not None:
             self.logit_bias = self.logit_bias[keep_indices_device]
+        self.logits_mask = [self.logits_mask[i] for i in keep_indices]
 
     def _filter_batch_custom_logit_processor(
         self, keep_indices: List[int], keep_indices_device: torch.Tensor
@@ -388,6 +389,7 @@ class SamplingBatchInfo:
         self.need_top_p_sampling |= other.need_top_p_sampling
         self.need_top_k_sampling |= other.need_top_k_sampling
         self.need_min_p_sampling |= other.need_min_p_sampling
+        self.logits_mask += other.logits_mask
 
         self.adjusted_merge_batch(other)
 
