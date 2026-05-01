@@ -46,7 +46,7 @@ class GenerateState(metaclass=SingletonMeta):
         # persistent state for the generation process
         self.args = args
         self.tokenizer = load_tokenizer(args.hf_checkpoint, trust_remote_code=True)
-        self.semaphore = asyncio.Semaphore(8)
+        self.semaphore = asyncio.Semaphore(12)
 
 
 client = httpx.AsyncClient(

@@ -214,6 +214,7 @@ def forward_only(
                 "total_lengths",
                 "response_lengths",
                 "max_seq_lens",
+                'logits_masks',
             ],
             args.data_pad_size_multiplier,
             args.qkv_format,
@@ -243,6 +244,7 @@ def forward_only(
             with_entropy=args.use_rollout_entropy,
             max_seq_lens=batch.get("max_seq_lens", None),
             loss_masks=batch.get("loss_masks", None),
+            logits_masks=batch.get('logits_masks', None),
         )
 
     # Turn on evaluation mode which disables dropout.
@@ -373,6 +375,7 @@ def train_one_step(
                 "rollout_log_probs",
                 "max_seq_lens",
                 "teacher_log_probs",
+                'logits_masks',
             ],
             args.data_pad_size_multiplier,
             args.qkv_format,

@@ -374,6 +374,8 @@ def get_values(
     with_entropy: bool = False,
     non_loss_data: bool = True,
     max_seq_lens: list[int] | None = None,
+    loss_masks = None,
+    logits_masks = None,
 ) -> dict[str, list[torch.Tensor]]:
     """Extract per-token value predictions over response tokens.
 
@@ -519,42 +521,42 @@ def compute_advantages_and_returns(args: Namespace, rollout_data: RolloutBatch) 
         advantages = [r for r in returns]
 
     elif args.advantage_estimator == "ppo":
-        old_rewards = rewards
-        rewards = []
-        kl_coef = -args.kl_coef
-        cp_rank = mpu.get_context_parallel_rank()
-        for reward, k in zip(old_rewards, kl, strict=False):
-            k *= kl_coef
-            if cp_rank == 0:
-                k[-1] += reward
-            rewards.append(k)
-        advantages, returns = get_advantages_and_returns_batch(
-            total_lengths, response_lengths, values, rewards, args.gamma, args.lambd
-        )
-    elif args.advantage_estimator == "ppo1":
-        gamma = args.gamma
-        lambd = args.lambd * gamma
-        gamma_list = []
-        lambd_list = []
-        reward_list = []
-        for reward in rewards:
-            temp_gamma = []
-            temp_lambd = []
-            temp_reward = []
-            for item in reward:
-                n = len(item)
-                temp_gamma.append(gamma ** n)
-                temp_lambd.append(lambd ** n)
-                discounted_sum = sum(gamma ** i * j for i, j in enumerate(item))
-                temp_reward.append(discounted_sum)
-            gamma_list.append(temp_gamma)
-            lambd_list.append(temp_lambd)
-            reward_list.append(temp_reward)
+        if isinstance(rewards[0], list):
+            gamma = args.gamma
+            lambd = args.lambd * gamma
+            gamma_list = []
+            lambd_list = []
+            reward_list = []
+            for reward in rewards:
+                temp_gamma = []
+                temp_lambd = []
+                temp_reward = []
+                for item in reward:
+                    n = len(item)
+                    temp_gamma.append(gamma ** n)
+                    temp_lambd.append(lambd ** n)
+                    discounted_sum = sum(gamma ** i * j for i, j in enumerate(item))
+                    temp_reward.append(discounted_sum)
+                gamma_list.append(temp_gamma)
+                lambd_list.append(temp_lambd)
+                reward_list.append(temp_reward)
 
-        advantages, returns = get_advantages_and_returns_batch1(
-            total_lengths, response_lengths, values, reward_list, gamma_list, lambd_list, loss_masks
-        )
-
+            advantages, returns = get_advantages_and_returns_batch1(
+                total_lengths, response_lengths, values, reward_list, gamma_list, lambd_list, loss_masks
+            )
+        else:
+            old_rewards = rewards
+            rewards = []
+            kl_coef = -args.kl_coef
+            cp_rank = mpu.get_context_parallel_rank()
+            for reward, k in zip(old_rewards, kl, strict=False):
+                k *= kl_coef
+                if cp_rank == 0:
+                    k[-1] += reward
+                rewards.append(k)
+            advantages, returns = get_advantages_and_returns_batch(
+                total_lengths, response_lengths, values, rewards, args.gamma, args.lambd
+            )
     elif args.advantage_estimator == "reinforce_plus_plus":
         rewards = torch.tensor(rewards, dtype=torch.float32, device=kl[0].device)
         returns = get_reinforce_plus_plus_returns(
@@ -635,7 +637,7 @@ def compute_advantages_and_returns(args: Namespace, rollout_data: RolloutBatch) 
             assert (
                 all_advs.size() == all_masks.size()
             ), f"Shape mismatch before whitening: advantages {all_advs.size()}, masks {all_masks.size()}"
-            dp_group = mpu.get_data_parallel_group()
+            dp_group = mpu.get_data_parallel_group()#cp？
 
             whitened_advs_flat = distributed_masked_whiten(
                 all_advs,

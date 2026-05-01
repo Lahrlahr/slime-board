@@ -424,12 +424,12 @@ class DistributedDataParallel(_BaseDataParallel):
         """
 
         def hook(*unused):
-            try:
-                import pydevd_pycharm
-                pydevd_pycharm.settrace('localhost', port=30001, stdout_to_server=True,
-                                        stderr_to_server=True)
-            except:
-                pass
+            # try:
+            #     import pydevd_pycharm
+            #     pydevd_pycharm.settrace('localhost', port=30001, stdout_to_server=True,
+            #                             stderr_to_server=True)
+            # except:
+            #     pass
 
             if is_graph_capturing():
                 return

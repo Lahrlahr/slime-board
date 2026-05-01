@@ -67,7 +67,7 @@ EVAL_ARGS=(
 )
 
 GRPO_ARGS=(
-   --advantage-estimator ppo1
+   --advantage-estimator ppo
    --kl-loss-coef 0.00
    --kl-loss-type low_var_kl
    --kl-coef 0.00

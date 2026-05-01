@@ -378,7 +378,7 @@ def get_advantages_and_returns_batch1(
     rewards_list,
     gamma_list,
     lambd_list,
-    loss_mask: torch.Tensor= None,
+    loss_masks: torch.Tensor= None,
 ):
     """
     Batched GAE with CP support.
@@ -418,7 +418,7 @@ def get_advantages_and_returns_batch1(
 
 # ------------------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------------------
-        valid_lengths = (loss_mask == 1).sum(dim=1)
+        valid_lengths = [(loss_mask == 1).sum() for loss_mask in loss_masks]
         max_len = max(valid_lengths).item()
 
         full_values = torch.zeros(B, max_len, device=device, dtype=dtype)
@@ -428,10 +428,10 @@ def get_advantages_and_returns_batch1(
 
         for i in range(B):
             L = valid_lengths[i]
-            full_values[i, :L] = full_values_list[i][loss_mask[i] == 1]
-            full_rewards[i, :L] = rewards_list[i]
-            gamma_tensor[i, :L] = gamma_list[i]
-            lambd_tensor[i, :L] = lambd_list[i]
+            full_values[i, :L] = full_values_list[i][loss_masks[i] == 1]
+            full_rewards[i, :L] = torch.tensor(rewards_list[i], device=device, dtype=dtype)
+            gamma_tensor[i, :L] = torch.tensor(gamma_list[i], device=device, dtype=dtype)
+            lambd_tensor[i, :L] = torch.tensor(lambd_list[i], device=device, dtype=dtype)
 
         lastgaelam = torch.zeros(B, device=device, dtype=dtype)
         adv_rev = []
@@ -453,11 +453,11 @@ def get_advantages_and_returns_batch1(
             L1 = response_lengths[i]
 
             full_advantages = torch.zeros(L1, device=device, dtype=dtype)
-            full_advantages[loss_mask[i] == 1] = temp_full_advantages[i, :L]
+            full_advantages[loss_masks[i] == 1] = temp_full_advantages[i, :L]
             advantages_list.append(full_advantages)
 
             full_returns = torch.zeros(L1, device=device, dtype=dtype)
-            full_returns[loss_mask[i] == 1] = temp_full_returns[i, :L]
+            full_returns[loss_masks[i] == 1] = temp_full_returns[i, :L]
             returns_list.append(full_returns)
 
 #------------------------------------------------------------------------------------------
