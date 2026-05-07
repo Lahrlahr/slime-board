@@ -36,10 +36,10 @@ ROLLOUT_ARGS1=(
 
     --rollout-max-response-len 4096
     --rollout-temperature 0.8
-    --global-batch-size 32
+    --global-batch-size 24
     --balance-data
 
-    --num-critic-only-steps 0
+    --num-critic-only-steps 20
     --gamma 0.9
     --lambd 0.8
 )
@@ -156,9 +156,10 @@ MISC_ARGS=(
     --critic-num-nodes 1
     --critic-num-gpus-per-node 1
     --critic-load /data/huangguang/model/Qwen/Qwen2.5-1.5B-critic
-    --save-interval 1
+    --save-interval 20
     --save /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand-1
-    --save-hf /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand-2
+    --save-hf /data/huangguang/model/Qwen/actor/Qwen2.5-1.5B-expand-{rollout_id}
+    --save-hf-critic /data/huangguang/model/Qwen/critic/Qwen2.5-1.5B-critic-{rollout_id}
 )
 
 ray job submit --address="http://127.0.0.1:2259" \

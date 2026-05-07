@@ -745,6 +745,15 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                     "The model will be saved to `save_hf.format(rollout_id)`. "
                 ),
             )
+            parser.add_argument(
+                "--save-hf-critic",
+                type=str,
+                default=None,
+                help=(
+                    "Path to save the model in HuggingFace format when using Megatron backend. "
+                    "The model will be saved to `save_hf.format(rollout_id)`. "
+                ),
+            )
             reset_arg(parser, "--seed", type=int, default=1234)
             reset_arg(parser, "--clip-grad", type=float, default=1.0)
             reset_arg(parser, "--calculate-per-token-loss", action="store_true")

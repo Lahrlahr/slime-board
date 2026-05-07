@@ -209,7 +209,7 @@ async def generate_junqi():
             response_length=len(buffer),
             reward=reward_list[i],
             status=Sample.Status.COMPLETED if is_complete else Sample.Status.TRUNCATED,
-            loss_mask=torch.tensor(loss_mask[i], dtype=torch.bool),
+            loss_mask=loss_mask[i],
             rollout_log_probs=rollout_log_probs[i],
             logits_masks=logits_masks[i],
         )

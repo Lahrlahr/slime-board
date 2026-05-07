@@ -58,6 +58,7 @@ class MegatronTrainRayActor(TrainRayActor):
         except:
             pass
         args.hf_checkpoint = args.load if role == 'actor' else args.critic_load
+
         if args.debug_rollout_only:
             self.args = args
             return 0
@@ -532,7 +533,7 @@ class MegatronTrainRayActor(TrainRayActor):
 
             maybe_finalize_async_save(blocking=True)
 
-        save(rollout_id, self.model, self.optimizer, self.opt_param_scheduler)
+        # save(rollout_id, self.model, self.optimizer, self.opt_param_scheduler)
 
         if force_sync and self.args.async_save:
             maybe_finalize_async_save(blocking=True)
@@ -540,6 +541,12 @@ class MegatronTrainRayActor(TrainRayActor):
         if self.args.save_hf is not None and self.role == "actor":
             from slime.backends.megatron_utils.model import save_hf_model
 
+            save_hf_model(self.args, rollout_id, self.model)
+
+        if self.args.save_hf_critic is not None and self.role == "critic":
+            from slime.backends.megatron_utils.model import save_hf_model
+
+            self.args.save_hf = self.args.save_hf_critic
             save_hf_model(self.args, rollout_id, self.model)
 
         if self.args.offload_train:
