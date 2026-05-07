@@ -31,7 +31,7 @@ CKPT_ARGS=(
 ROLLOUT_ARGS1=(
     --data-source-path patch.ppo_rollout.Dummy
     --rollout-function-path patch.ppo_rollout.generate_rollout
-    --rollout-batch-size 16
+    --rollout-batch-size 12
     --num-rollout 3000
 
     --rollout-max-response-len 4096
@@ -39,7 +39,7 @@ ROLLOUT_ARGS1=(
     --global-batch-size 32
     --balance-data
 
-    --num-critic-only-steps 20
+    --num-critic-only-steps 0
     --gamma 0.9
     --lambd 0.8
 )
@@ -92,12 +92,12 @@ SGLANG_ARGS=(
 )
 
 # Wandb args (only if WANDB_API_KEY is set)
-#export WANDB_API_KEY=e20876edfa0ada0582f52a7982047c6f852c6969
+export WANDB_API_KEY=e20876edfa0ada0582f52a7982047c6f852c6969
 if [ -n "$WANDB_API_KEY" ]; then
    WANDB_ARGS=(
       --use-wandb
       --wandb-project slime
-      --wandb-group USB
+      --wandb-group Board
       --wandb-key ${WANDB_API_KEY}
       --disable-wandb-random-suffix
    )
@@ -156,7 +156,7 @@ MISC_ARGS=(
     --critic-num-nodes 1
     --critic-num-gpus-per-node 1
     --critic-load /data/huangguang/model/Qwen/Qwen2.5-1.5B-critic
-    --save-interval 20
+    --save-interval 1
     --save /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand-1
     --save-hf /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand-2
 )

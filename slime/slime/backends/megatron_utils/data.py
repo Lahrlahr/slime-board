@@ -420,6 +420,9 @@ def log_rollout_data(
                 "rollout_routed_experts",
                 "max_seq_lens",
                 "dynamic_global_batch_size",
+                'raw_reward',
+                'rewards',
+                'logits_masks',
             ]:
                 continue
             # Upload per sample mean for each rollout value

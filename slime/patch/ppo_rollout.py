@@ -4,6 +4,7 @@ from typing import Any
 import numpy as np
 import pybase64
 import sglang_router
+import torch
 import asyncio
 import copy
 import inspect
@@ -202,11 +203,18 @@ async def generate_junqi():
 
         await asyncio.gather(close_session(session_ids[0]), close_session(session_ids[1]))
 
-        output = [Sample(tokens=prompt[i] + buffer, response_length=len(buffer),
-                         reward=reward_list[i],
-                         status=Sample.Status.COMPLETED if is_complete else Sample.Status.TRUNCATED,
-                         loss_mask=loss_mask[i],
-                         rollout_log_probs=rollout_log_probs[i], logits_masks=logits_masks[i], ) for i in range(2)]
+    output = [
+        Sample(
+            tokens=prompt[i] + buffer,
+            response_length=len(buffer),
+            reward=reward_list[i],
+            status=Sample.Status.COMPLETED if is_complete else Sample.Status.TRUNCATED,
+            loss_mask=torch.tensor(loss_mask[i], dtype=torch.bool),
+            rollout_log_probs=rollout_log_probs[i],
+            logits_masks=logits_masks[i],
+        )
+        for i in range(2)
+    ]
     return output
 
 

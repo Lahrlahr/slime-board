@@ -273,8 +273,8 @@ def get_log_probs_and_entropy(
     )):
 
         if loss_masks is not None:
-            logits_chunk = logits_chunk[loss_masks[i]]
-            tokens_chunk = tokens_chunk[loss_masks[i]]
+            logits_chunk = logits_chunk[loss_masks[i] == 1]
+            tokens_chunk = tokens_chunk[loss_masks[i] == 1]
         if logits_masks is not None:
             assert len(logits_chunk) == len(logits_masks[i])
             mask = torch.full_like(logits_chunk, float('-inf'))
@@ -297,8 +297,11 @@ def get_log_probs_and_entropy(
             full_log_prob[loss_masks[i] == 1] = log_prob.squeeze(-1)
             log_probs_list.append(full_log_prob)
 
-            full_entropy = torch.zeros(L, device=device, dtype=dtype)
-            full_entropy[loss_masks[i] == 1] = entropy
+            if with_entropy:
+                full_entropy = torch.zeros(L, device=device, dtype=dtype)
+                full_entropy[loss_masks[i] == 1] = entropy
+            else:
+                full_entropy = None
             entropy_list.append(full_entropy)
         else:
             log_probs_list.append(log_prob.squeeze(-1))
@@ -345,7 +348,7 @@ def get_invalid_probs_loss(
             response_lengths=response_lengths,
             max_seq_lens=max_seq_lens,
     )):
-        logits_chunk = logits_chunk[loss_masks[i], 151665:157600]
+        logits_chunk = logits_chunk[loss_masks[i] == 1, 151665:157600]
         probs = F.softmax(logits_chunk, dim=-1)
         action_mask = torch.full_like(probs, 0)
         for j, idx in enumerate(logits_masks[i]):
@@ -858,7 +861,7 @@ def policy_loss_function(
         pg_loss_reducer = sum_of_sample_mean
 
     pg_loss = pg_loss_reducer(pg_loss)
-    if args.advantage_estimator == "ppo1":
+    if logits_masks is not None:
         invalid_probs_loss = get_invalid_probs_loss(
             logits,
             args=args,
@@ -876,12 +879,15 @@ def policy_loss_function(
     pg_clipfrac = sum_of_sample_mean(pg_clipfrac)
     ppo_kl = sum_of_sample_mean(ppo_kl)
 
-    # entropy loss
-    entropy = log_probs_and_entropy["entropy"]
-    entropy = torch.cat(entropy, dim=0)
-    entropy_loss = sum_of_sample_mean(entropy)
+    if args.entropy_coef > 0:
+        # entropy loss
+        entropy = log_probs_and_entropy["entropy"]
+        entropy = torch.cat(entropy, dim=0)
+        entropy_loss = sum_of_sample_mean(entropy)
 
-    loss = pg_loss - args.entropy_coef * entropy_loss
+        loss = pg_loss - args.entropy_coef * entropy_loss
+    else:
+        loss = pg_loss
 
     if args.use_kl_loss:
         ref_log_probs = batch["ref_log_probs"]
@@ -911,7 +917,7 @@ def policy_loss_function(
     reported_loss = {
         "loss": loss.clone().detach(),
         "pg_loss": pg_loss.clone().detach(),
-        "entropy_loss": entropy_loss.clone().detach(),
+        # "entropy_loss": entropy_loss.clone().detach(),
         "pg_clipfrac": pg_clipfrac.clone().detach(),
         "ppo_kl": ppo_kl.clone().detach(),
     }
@@ -922,7 +928,7 @@ def policy_loss_function(
     if args.use_kl_loss:
         reported_loss["kl_loss"] = kl_loss.clone().detach()
 
-    if args.advantage_estimator == "ppo1":
+    if logits_masks is not None:
         reported_loss['invalid_probs_loss']: invalid_probs_loss.clone().detach()
 
     if args.get_mismatch_metrics or args.use_tis:
