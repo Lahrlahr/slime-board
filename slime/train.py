@@ -1,8 +1,27 @@
-try:
-    import pydevd_pycharm
-    pydevd_pycharm.settrace('localhost', port=30000, stdout_to_server=True, stderr_to_server=True)
-except:
-    pass
+import os
+
+
+def _debugpy_blocking_wait() -> None:
+    """Find an available port and block until a debugger attaches."""
+
+    import debugpy
+
+    host = "0.0.0.0"
+    base_port = 5678
+    max_tries = 200
+
+    last_err: Exception | None = None
+    for port in range(base_port, base_port + max_tries):
+        try:
+            debugpy.listen((host, port))
+            print(f"[debugpy] pid={os.getpid()} waiting on {host}:{port}", flush=True)
+            debugpy.wait_for_client()
+            debugpy.breakpoint()
+            return
+        except OSError as e:
+            last_err = e
+
+    raise RuntimeError(f"debugpy: no available port in [{base_port}, {base_port + max_tries - 1}]") from last_err
 
 import ray
 
@@ -15,12 +34,18 @@ from slime.utils.misc import should_run_periodic_action
 def train(args):
     configure_logger()
     # allocate the GPUs
+    args.patch = False
+    # args.patch = True
     pgs = create_placement_groups(args)
     init_tracking(args)
 
     # create the rollout manager, with sglang engines inside.
     # need to initialize rollout manager first to calculate num_rollout
+    args.patch = False
     rollout_manager, num_rollout_per_epoch = create_rollout_manager(args, pgs["rollout"])
+    # args.patch = True
+    if args.patch:
+        rollout_manager1, _ = create_rollout_manager(args, pgs["rollout1"])
 
     # Update primary W&B with SGLang metrics endpoint now that servers are up.
     router_addr = ray.get(rollout_manager.get_metrics_router_addr.remote())
@@ -112,5 +137,6 @@ def train(args):
 
 
 if __name__ == "__main__":
+    # _debugpy_blocking_wait()
     args = parse_args()
     train(args)

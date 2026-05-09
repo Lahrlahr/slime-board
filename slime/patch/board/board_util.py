@@ -81,16 +81,20 @@ def make_pos2any():
               [2, 125, 128, 121, 62], [32, 123, 128, 127, 92]])
     return posmap
 
+def add_src(graph, seqs):
+    for seq in seqs:
+        graph[seq[0]].update(seq[1:])
+
+def add_from_src(graph, seqs):
+    for seq in seqs:
+        for i in seq[1:]:
+            graph[i].add(seq[0])
 
 def make_pos2plain():
     def add_seqs(graph, seqs):
         for a, b in seqs:
             graph[a].add(b)
             graph[b].add(a)
-
-    def add_src(graph, seqs):
-        for seq in seqs:
-            graph[seq[0]].update(seq[1:])
 
     posmap = defaultdict(set)
     add_seqs(posmap, [[2, 7], [10, 11], [13, 14], [17, 22], [20, 25], [22, 27], [24, 29],
@@ -106,13 +110,6 @@ def make_pos2plain():
                      [96, 90, 91, 92, 95, 97, 100, 101], [98, 92, 93, 94, 97, 99, 103, 104], [102, 97, 101, 103, 107],
                      [106, 100, 101, 105, 107, 110, 111, 112], [108, 103, 104, 107, 109, 112, 113, 114]])
     return posmap
-
-
-def add_from_src(graph, seqs):
-    for seq in seqs:
-        for i in seq[1:]:
-            graph[i].add(seq[0])
-
 
 def make_pos2camp():
     posmap = defaultdict(set)
@@ -139,6 +136,13 @@ def make_pos2flag():
                   [116, 111, 115, 117], [118, 113, 117, 119]])
     return posmap
 
+def make_flag2pos():
+    posmap = defaultdict(set)
+    add_src(posmap,
+                 [[26, 21, 25, 27], [28, 23, 27, 29], [56, 51, 55, 57], [58, 53, 57, 59], [86, 81, 85, 87],
+                  [88, 83, 87, 89],
+                  [116, 111, 115, 117], [118, 113, 117, 119]])
+    return posmap
 
 def make_action_mask():
     posmap = defaultdict(set)
@@ -166,6 +170,7 @@ POS2ANY = make_pos2any()
 POS2PLAIN = make_pos2plain()
 POS2CAMP = make_pos2camp()
 POS2FLAG = make_pos2flag()
+FLAG2POS = make_flag2pos()
 ACTION_MASK = make_action_mask()
 
 
@@ -252,9 +257,10 @@ def get_moves(start_pos, pos2piece):
     positions2, pieces2, parent2 = traverse(start_pos, pos2piece, POS2PLAIN)
     positions3, pieces3, parent3 = traverse(start_pos, pos2piece, POS2CAMP, True)
     positions4, _, parent4 = traverse(start_pos, pos2piece, POS2FLAG)
+    _, pieces4, _ = traverse(start_pos, pos2piece, FLAG2POS)
 
     positions = positions1 | positions2 | positions3 | positions4
-    pieces = pieces1 | pieces2 | pieces3
+    pieces = pieces1 | pieces2 | pieces3 | pieces4
     parent = {start_pos: None}
     for d in (parent1, parent2, parent3, parent4):
         for k, v in d.items():
@@ -269,9 +275,10 @@ def get_engineer_moves(start_pos, pos2piece):
     positions2, pieces2, parent2 = traverse(start_pos, pos2piece, POS2PLAIN)
     positions3, pieces3, parent3 = traverse(start_pos, pos2piece, POS2CAMP, True)
     positions4, _, parent4 = traverse(start_pos, pos2piece, POS2FLAG)
+    _, pieces4, _ = traverse(start_pos, pos2piece, FLAG2POS)
 
     positions = positions1 | positions2 | positions3 | positions4
-    pieces = pieces1 | pieces2 | pieces3
+    pieces = pieces1 | pieces2 | pieces3 | pieces4
     parent = {start_pos: None}
     for d in (parent1, parent2, parent3, parent4):
         for k, v in d.items():

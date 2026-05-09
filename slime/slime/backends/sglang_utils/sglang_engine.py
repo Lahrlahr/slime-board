@@ -110,9 +110,9 @@ class SGLangEngine(RayActor):
         except:
             pass
         self.args = args
-        self.rank = rank
+        self.rank = rank # rollout的engine排序
         self.worker_type = worker_type
-        self.base_gpu_id = base_gpu_id
+        self.base_gpu_id = base_gpu_id # 本engine的起始gpu_id
         self.sglang_overrides = sglang_overrides or {}
         self.num_gpus_per_engine = num_gpus_per_engine
 

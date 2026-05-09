@@ -31,15 +31,15 @@ CKPT_ARGS=(
 ROLLOUT_ARGS1=(
     --data-source-path patch.ppo_rollout.Dummy
     --rollout-function-path patch.ppo_rollout.generate_rollout
-    --rollout-batch-size 12
+    --rollout-batch-size 8
     --num-rollout 3000
 
     --rollout-max-response-len 4096
     --rollout-temperature 0.8
-    --global-batch-size 24
+    --global-batch-size 16
     --balance-data
 
-    --num-critic-only-steps 20
+    --num-critic-only-steps 0
     --gamma 0.9
     --lambd 0.8
 )
@@ -148,18 +148,18 @@ RUNTIME_ENV_JSON="{
   }
 }"
 MISC_ARGS=(
-    --hf-checkpoint /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand
-    --load /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand
+    --hf-checkpoint /data/huangguang/model/Qwen/actor1/Qwen2.5-1.5B-expand-99
+    --load /data/huangguang/model/Qwen/actor1/Qwen2.5-1.5B-expand-99
     --actor-num-nodes 1
     --actor-num-gpus-per-node 1
     --rollout-num-gpus 1
     --critic-num-nodes 1
     --critic-num-gpus-per-node 1
-    --critic-load /data/huangguang/model/Qwen/Qwen2.5-1.5B-critic
-    --save-interval 20
+    --critic-load /data/huangguang/model/Qwen/critic1/Qwen2.5-1.5B-critic-99
+    --save-interval 50
     --save /data/huangguang/model/Qwen/Qwen2.5-1.5B-expand-1
-    --save-hf /data/huangguang/model/Qwen/actor/Qwen2.5-1.5B-expand-{rollout_id}
-    --save-hf-critic /data/huangguang/model/Qwen/critic/Qwen2.5-1.5B-critic-{rollout_id}
+    --save-hf /data/huangguang/model/Qwen/actor2/Qwen2.5-1.5B-expand-{rollout_id}
+    --save-hf-critic /data/huangguang/model/Qwen/critic2/Qwen2.5-1.5B-critic-{rollout_id}
 )
 
 ray job submit --address="http://127.0.0.1:2259" \

@@ -102,6 +102,9 @@ def create_placement_groups(args):
             num_gpus += args.critic_num_nodes * args.critic_num_gpus_per_node
             critic_offset = args.actor_num_nodes * args.actor_num_gpus_per_node
             rollout_offset += args.critic_num_nodes * args.critic_num_gpus_per_node
+    if args.patch:
+        num_gpus += 1
+        rollout1_offset = rollout_offset + 1
 
     logger.info(f"Creating placement group with {num_gpus} GPUs...")
     pg, actor_pg_reordered_bundle_indices, actor_pg_reordered_gpu_ids = _create_placement_group(num_gpus)
@@ -112,10 +115,15 @@ def create_placement_groups(args):
         critic_pg_reordered_bundle_indices = actor_pg_reordered_bundle_indices[critic_offset:]
         critic_pg_reordered_gpu_ids = actor_pg_reordered_gpu_ids[critic_offset:]
 
+    if args.patch:
+        rollout1_pg_reordered_bundle_indices = actor_pg_reordered_bundle_indices[rollout1_offset:]
+        rollout1_pg_reordered_gpu_ids = actor_pg_reordered_gpu_ids[rollout1_offset:]
+
     return {
         "actor": (pg, actor_pg_reordered_bundle_indices, actor_pg_reordered_gpu_ids),
         "critic": (pg, critic_pg_reordered_bundle_indices, critic_pg_reordered_gpu_ids) if args.use_critic else None,
         "rollout": (pg, rollout_pg_reordered_bundle_indices, rollout_pg_reordered_gpu_ids),
+        'rollout1': (pg, rollout1_pg_reordered_bundle_indices, rollout1_pg_reordered_gpu_ids) if args.patch else None,
     }
 
 

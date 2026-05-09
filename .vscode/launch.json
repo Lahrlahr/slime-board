@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Python: 当前文件(多进程)",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "subProcess": false,
+        "justMyCode": false,
+        "cwd": "/project/slime",
+        "env": {
+          "PYTHONPATH": "/project/slime"
+        }
+      },
+      {
+        "name": "Attach: train",
+        "type": "debugpy",
+        "request": "attach",
+        "connect": {
+          "host": "127.0.0.1",
+          "port": 5678
+        },
+        "justMyCode": false
+      }
+    ]
+  }

@@ -157,6 +157,8 @@ class ServerGroup:
             # Compute base_port from the maximum cursor across all nodes that
             # this group's engines may land on (conservative: just use global max).
             base_port = max(port_cursors.values()) if port_cursors else 15000
+            if self.args.patch:
+                base_port = 17000
             addr_and_ports, port_cursors = _allocate_rollout_engine_addr_and_ports_normal(
                 args=self.args,
                 rollout_engines=rollout_engines,
@@ -355,7 +357,7 @@ class RolloutManager:
     def __init__(self, args, pg):
         try:
             import pydevd_pycharm
-            pydevd_pycharm.settrace('localhost', port=30002, stdout_to_server=True, stderr_to_server=True)
+            pydevd_pycharm.settrace('localhost', port=30004 if args.patch else 30002, stdout_to_server=True, stderr_to_server=True)
         except:
             pass
 
@@ -411,6 +413,9 @@ class RolloutManager:
         if srv is None or srv.router_ip is None:
             return None
         return f"http://{srv.router_ip}:{srv.router_port}"
+
+    def _get_engine_addr(self):
+        return self.args.engine_addr
 
     def get_metrics_router_addr(self) -> str | None:
         """Public wrapper for remote calls from the driver process."""
@@ -1015,6 +1020,9 @@ def start_rollout_servers(args, pg) -> dict[str, RolloutServer]:
 
     # Compute megatron GPU range for per-group offload decisions.
     rollout_pg_offset = _compute_rollout_offset(args)
+    if args.patch:
+        rollout_pg_offset += 1
+        args.hf_checkpoint = '/data/huangguang/model/Qwen/Qwen2.5-1.5B-expand/'
     megatron_num_gpus = _compute_megatron_num_gpus(args)
 
     for model_idx, model_cfg in enumerate(config.models):
@@ -1114,6 +1122,7 @@ def start_rollout_servers(args, pg) -> dict[str, RolloutServer]:
 
             if all_init_handles:
                 ray.get(all_init_handles)
+            args.engine_addr = ray.get(group.engines[0].get_url.remote())
 
         servers[model_cfg.name] = RolloutServer(
             server_groups=server_groups,
